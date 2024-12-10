@@ -1,4 +1,5 @@
 from models.mlp import MLP
+from models.dfn import DFN
 import torch
 import torch.nn as nn
 import pandas as pd
@@ -10,7 +11,7 @@ from sklearn.metrics import classification_report
 from pathlib import Path
 
 
-def get_data_loaders(device, label="label_1", batch_size=64, use_custom_cols=True, sliding_window=1):
+def get_data_loaders(device, label="label_1", batch_size=64, use_custom_cols=True, window_size=1, flatten=True):
     train_data = pd.read_csv("data/Train_NoAuction_Zscore.csv")
     test_data = pd.read_csv("data/Test_NoAuction_Zscore.csv")
 
@@ -25,21 +26,38 @@ def get_data_loaders(device, label="label_1", batch_size=64, use_custom_cols=Tru
         X_train = X_train.iloc[:, :40]
         X_test = X_test.iloc[:, :40]
 
-    # sliding window stuff
+    X_train = X_train.to_numpy()
+    X_test = X_test.to_numpy()
+    y_train = y_train.to_numpy()
+    y_test = y_test.to_numpy()
+
+    # sliding window
+    if window_size != 1:
+        D = X_train.shape[1]
+        X_train = np.lib.stride_tricks.sliding_window_view(
+            X_train, (window_size, D))
+        X_train = X_train.reshape((-1, window_size*D))
+        y_train = y_train[window_size-1:]
+
+        X_test = np.lib.stride_tricks.sliding_window_view(
+            X_test, (window_size, D)).squeeze()
+        if flatten:
+            X_test = X_test.reshape((-1, window_size*D))
+        y_test = y_test[window_size-1:]
 
     X_train, X_val, y_train, y_val = train_test_split(
         X_train, y_train, shuffle=True, test_size=0.2)
 
     X_train_tensor = torch.tensor(
-        X_train.values, dtype=torch.float32).to(device)
+        X_train, dtype=torch.float32).to(device)
     X_val_tensor = torch.tensor(
-        X_val.values, dtype=torch.float32).to(device)
+        X_val, dtype=torch.float32).to(device)
     X_test_tensor = torch.tensor(
-        X_test.values, dtype=torch.float32).to(device)
+        X_test, dtype=torch.float32).to(device)
 
-    y_train_tensor = torch.tensor(y_train.values, dtype=torch.long).to(device)
-    y_val_tensor = torch.tensor(y_val.values, dtype=torch.long).to(device)
-    y_test_tensor = torch.tensor(y_test.values, dtype=torch.long).to(device)
+    y_train_tensor = torch.tensor(y_train, dtype=torch.long).to(device)
+    y_val_tensor = torch.tensor(y_val, dtype=torch.long).to(device)
+    y_test_tensor = torch.tensor(y_test, dtype=torch.long).to(device)
 
     train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
     val_dataset = TensorDataset(X_val_tensor, y_val_tensor)
@@ -96,6 +114,7 @@ def visualize_curves(train_losses, val_losses, train_accuracies, val_accuracies,
         plt.show()
     if save:
         plt.savefig(f"results/{experiment_name}/accuracy_curves.png")
+    plt.close()
 
 
 def train_and_evaluate_model(train_loader, val_loader, test_loader, experiment_name, optimizer, criterion, epochs):
@@ -155,6 +174,9 @@ def train_and_evaluate_model(train_loader, val_loader, test_loader, experiment_n
 
 
 if __name__ == "__main__":
+    NUM_FEATURES = 144
+    NUM_FEATURES_SIMPLE = 40
+
     # get device
     device = (
         "cuda"
@@ -168,14 +190,16 @@ if __name__ == "__main__":
     # hyperparameters
     learning_rate = 1e-3
     batch_size = 64
-    epochs = 2
+    epochs = 20
+    window_size = 10
 
     # model definition
-    model = MLP(input_size=144, hidden_size=64)
+    # model = MLP(input_size=NUM_FEATURES*window_size, hidden_size=64)
+    model = DFN(input_dim=NUM_FEATURES*window_size)
     model = model.to(device)
 
     # experiment name
-    experiment_name = "test"
+    experiment_name = "dfn-s10"
 
     # loss function and optimizer
     criterion = nn.CrossEntropyLoss()
@@ -188,7 +212,7 @@ if __name__ == "__main__":
 
         # get data loaders
         train_loader, val_loader, test_loader = get_data_loaders(
-            device, label=label, batch_size=batch_size)
+            device, label=label, batch_size=batch_size, window_size=window_size)
 
         # training and evaluation
         train_and_evaluate_model(train_loader, val_loader,
