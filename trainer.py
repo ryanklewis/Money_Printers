@@ -78,7 +78,7 @@ def visualize_curves(train_losses, val_losses, train_accuracies, val_accuracies,
     plt.plot(np.arange(epochs), val_losses, label="val")
     plt.xlabel("epoch")
     plt.ylabel("loss")
-    plt.title("loss curves")
+    plt.title(f"{experiment_name} loss curves")
     plt.legend()
     if display:
         plt.show()
@@ -90,7 +90,7 @@ def visualize_curves(train_losses, val_losses, train_accuracies, val_accuracies,
     plt.plot(np.arange(epochs), val_accuracies, label="val")
     plt.xlabel("epoch")
     plt.ylabel("accuracy")
-    plt.title("accuracy curves")
+    plt.title(f"{experiment_name} accuracy curves")
     plt.legend()
     if display:
         plt.show()
@@ -170,22 +170,26 @@ if __name__ == "__main__":
     batch_size = 64
     epochs = 2
 
-    # get data loaders
-    train_loader, val_loader, test_loader = get_data_loaders(
-        device, batch_size=64)
-
     # model definition
     model = MLP(input_size=144, hidden_size=64)
     model = model.to(device)
 
     # experiment name
     experiment_name = "test"
-    Path(f"results/{experiment_name}").mkdir(parents=True, exist_ok=True)
 
     # loss function and optimizer
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
-    # training and evaluation
-    train_and_evaluate_model(train_loader, val_loader,
-                             test_loader, "test", optimizer, criterion, epochs)
+    for label in ["label_1", "label_2", "label_3", "label_5", "label_10"]:
+        new_experiment_name = experiment_name + f"/{label}"
+        Path(
+            f"results/{new_experiment_name}").mkdir(parents=True, exist_ok=True)
+
+        # get data loaders
+        train_loader, val_loader, test_loader = get_data_loaders(
+            device, label=label, batch_size=batch_size)
+
+        # training and evaluation
+        train_and_evaluate_model(train_loader, val_loader,
+                                 test_loader, new_experiment_name, optimizer, criterion, epochs)
