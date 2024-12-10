@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
+from pathlib import Path
 
 
 def get_data_loaders(device, label="label_1", batch_size=64, use_custom_cols=True, sliding_window=1):
@@ -53,30 +54,51 @@ def get_data_loaders(device, label="label_1", batch_size=64, use_custom_cols=Tru
     return train_loader, val_loader, test_loader
 
 
-if __name__ == "__main__":
-    device = (
-        "cuda"
-        if torch.cuda.is_available()
-        else "mps"
-        if torch.backends.mps.is_available()
-        else "cpu"
-    )
-    print(f"Using {device} device")
+def test_model(model, test_loader, experiment_name, save=True, display=False):
+    test_predictions = []
+    test_labels = []
 
-    train_loader, val_loader, test_loader = get_data_loaders(device)
+    model.eval()
+    with torch.no_grad():
+        for batch, (X, y) in enumerate(test_loader):
+            pred = model(X)
+            _, predicted = torch.max(pred, 1)
+            test_predictions.extend(predicted.cpu().numpy())
+            test_labels.extend(y.cpu().numpy())
+    report = classification_report(test_labels, test_predictions)
+    if display:
+        print(report)
+    if save:
+        with open(f"results/{experiment_name}/report.txt", "w") as f:
+            f.write(report)
 
-    # START OF PART THAT SHOULD BE CHANGED
-    model = MLP(input_size=144, hidden_size=64)
-    model = model.to(device)
 
-    learning_rate = 1e-3
-    batch_size = 64
-    epochs = 2
+def visualize_curves(train_losses, val_losses, train_accuracies, val_accuracies, experiment_name, save=True, display=False):
+    plt.plot(np.arange(epochs), train_losses, label="train")
+    plt.plot(np.arange(epochs), val_losses, label="val")
+    plt.xlabel("epoch")
+    plt.ylabel("loss")
+    plt.title("loss curves")
+    plt.legend()
+    if display:
+        plt.show()
+    if save:
+        plt.savefig(f"results/{experiment_name}/loss_curves.png")
+    plt.close()
 
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    # END OF PART THAT SHOULD BE CHANGED
+    plt.plot(np.arange(epochs), train_accuracies, label="train")
+    plt.plot(np.arange(epochs), val_accuracies, label="val")
+    plt.xlabel("epoch")
+    plt.ylabel("accuracy")
+    plt.title("accuracy curves")
+    plt.legend()
+    if display:
+        plt.show()
+    if save:
+        plt.savefig(f"results/{experiment_name}/accuracy_curves.png")
 
+
+def train_and_evaluate_model(train_loader, val_loader, test_loader, experiment_name, optimizer, criterion, epochs):
     train_losses = []
     val_losses = []
     train_accuracies = []
@@ -127,30 +149,43 @@ if __name__ == "__main__":
             val_accuracies.append(val_accuracy)
             print(f"Epoch {i} val accuracy {val_accuracy}")
 
-    test_predictions = []
-    test_labels = []
+    test_model(model, test_loader, experiment_name)
+    visualize_curves(train_losses, val_losses,
+                     train_accuracies, val_accuracies, experiment_name)
 
-    model.eval()
-    with torch.no_grad():
-        for batch, (X, y) in enumerate(test_loader):
-            pred = model(X)
-            _, predicted = torch.max(pred, 1)
-            test_predictions.extend(predicted.cpu().numpy())
-            test_labels.extend(y.cpu().numpy())
-    print(classification_report(test_labels, test_predictions))
 
-    plt.plot(np.arange(epochs), train_losses, label="train")
-    plt.plot(np.arange(epochs), val_losses, label="val")
-    plt.xlabel("epoch")
-    plt.ylabel("loss")
-    plt.title("loss curves")
-    plt.legend()
-    plt.show()
+if __name__ == "__main__":
+    # get device
+    device = (
+        "cuda"
+        if torch.cuda.is_available()
+        else "mps"
+        if torch.backends.mps.is_available()
+        else "cpu"
+    )
+    print(f"Using {device} device")
 
-    plt.plot(np.arange(epochs), train_accuracies, label="train")
-    plt.plot(np.arange(epochs), val_accuracies, label="val")
-    plt.xlabel("epoch")
-    plt.ylabel("accuracy")
-    plt.title("accuracy curves")
-    plt.legend()
-    plt.show()
+    # hyperparameters
+    learning_rate = 1e-3
+    batch_size = 64
+    epochs = 2
+
+    # get data loaders
+    train_loader, val_loader, test_loader = get_data_loaders(
+        device, batch_size=64)
+
+    # model definition
+    model = MLP(input_size=144, hidden_size=64)
+    model = model.to(device)
+
+    # experiment name
+    experiment_name = "test"
+    Path(f"results/{experiment_name}").mkdir(parents=True, exist_ok=True)
+
+    # loss function and optimizer
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+    # training and evaluation
+    train_and_evaluate_model(train_loader, val_loader,
+                             test_loader, "test", optimizer, criterion, epochs)
