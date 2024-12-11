@@ -19,7 +19,6 @@ class DFN(nn.Module):
         self.norm3 = nn.InstanceNorm1d(512)
 
         self.leaky_relu = nn.LeakyReLU(negative_slope=0.01)
-        self.softmax = nn.Softmax(dim=1)
 
     def forward(self, x):
         inter1 = self.norm1(self.leaky_relu(self.layer1(x)))
@@ -31,6 +30,5 @@ class DFN(nn.Module):
         inter7 = self.leaky_relu(self.layer4(inter6))
         inter8 = self.dropout(inter7)
         inter9 = self.leaky_relu(self.layer5(inter8))
-        inter10 = self.layer6(inter9)
-        out = self.softmax(inter10)
+        out = self.layer6(inter9)
         return out

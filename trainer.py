@@ -36,7 +36,8 @@ def get_data_loaders(device, label="label_1", batch_size=64, use_custom_cols=Tru
         D = X_train.shape[1]
         X_train = np.lib.stride_tricks.sliding_window_view(
             X_train, (window_size, D))
-        X_train = X_train.reshape((-1, window_size*D))
+        if flatten:
+            X_train = X_train.reshape((-1, window_size*D))
         y_train = y_train[window_size-1:]
 
         X_test = np.lib.stride_tricks.sliding_window_view(
@@ -190,16 +191,16 @@ if __name__ == "__main__":
     # hyperparameters
     learning_rate = 1e-3
     batch_size = 64
-    epochs = 20
-    window_size = 10
+    epochs = 5
+    window_size = 5
 
     # model definition
-    # model = MLP(input_size=NUM_FEATURES*window_size, hidden_size=64)
+    # model = MLP(input_size=NUM_FEATURES*window_size, hidden_size=128)
     model = DFN(input_dim=NUM_FEATURES*window_size)
     model = model.to(device)
 
     # experiment name
-    experiment_name = "dfn-s10"
+    experiment_name = "mlp-dfn-s5"
 
     # loss function and optimizer
     criterion = nn.CrossEntropyLoss()
