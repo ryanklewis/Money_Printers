@@ -2,6 +2,7 @@ from models.mlp import MLP
 from models.dfn import DFN
 from models.tcn import TCN
 from models.deep_lob import DeepLOB
+from models.trans_lob import TransLOB
 import torch
 import torch.nn as nn
 import pandas as pd
@@ -203,11 +204,12 @@ if __name__ == "__main__":
     # model = MLP(input_size=NUM_FEATURES*window_size, hidden_size=128)
     # model = DFN(input_dim=NUM_FEATURES*window_size)
     # model = TCN(input_channels=NUM_FEATURES)
-    model = DeepLOB(device)
+    # model = DeepLOB(device)
+    model = TransLOB()
     model = model.to(device)
 
     # experiment name
-    experiment_name = "deep_lob-s100"
+    experiment_name = "trans_lob-s100"
 
     # loss function and optimizer
     criterion = nn.CrossEntropyLoss()
