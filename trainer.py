@@ -1,5 +1,7 @@
 from models.mlp import MLP
 from models.dfn import DFN
+from models.tcn import TCN
+from models.deep_lob import DeepLOB
 import torch
 import torch.nn as nn
 import pandas as pd
@@ -11,7 +13,7 @@ from sklearn.metrics import classification_report
 from pathlib import Path
 
 
-def get_data_loaders(device, label="label_1", batch_size=64, use_custom_cols=True, window_size=1, flatten=True):
+def get_data_loaders(device, label="label_1", batch_size=64, use_custom_cols=True, window_size=1, flatten=True, tcn=False):
     train_data = pd.read_csv("data/Train_NoAuction_Zscore.csv")
     test_data = pd.read_csv("data/Test_NoAuction_Zscore.csv")
 
@@ -32,19 +34,22 @@ def get_data_loaders(device, label="label_1", batch_size=64, use_custom_cols=Tru
     y_test = y_test.to_numpy()
 
     # sliding window
-    if window_size != 1:
-        D = X_train.shape[1]
-        X_train = np.lib.stride_tricks.sliding_window_view(
-            X_train, (window_size, D))
-        if flatten:
-            X_train = X_train.reshape((-1, window_size*D))
-        y_train = y_train[window_size-1:]
+    D = X_train.shape[1]
+    X_train = np.lib.stride_tricks.sliding_window_view(
+        X_train, (window_size, D)).squeeze()
+    if flatten:
+        X_train = X_train.reshape((-1, window_size*D))
+    elif tcn:
+        X_train = X_train.reshape((-1, D, window_size))
+    y_train = y_train[window_size-1:]
 
-        X_test = np.lib.stride_tricks.sliding_window_view(
-            X_test, (window_size, D)).squeeze()
-        if flatten:
-            X_test = X_test.reshape((-1, window_size*D))
-        y_test = y_test[window_size-1:]
+    X_test = np.lib.stride_tricks.sliding_window_view(
+        X_test, (window_size, D)).squeeze()
+    if flatten:
+        X_test = X_test.reshape((-1, window_size*D))
+    elif tcn:
+        X_test = X_test.reshape((-1, D, window_size))
+    y_test = y_test[window_size-1:]
 
     X_train, X_val, y_train, y_val = train_test_split(
         X_train, y_train, shuffle=True, test_size=0.2)
@@ -189,18 +194,20 @@ if __name__ == "__main__":
     print(f"Using {device} device")
 
     # hyperparameters
-    learning_rate = 1e-3
+    learning_rate = 5e-4
     batch_size = 64
-    epochs = 5
-    window_size = 5
+    epochs = 20
+    window_size = 100
 
     # model definition
     # model = MLP(input_size=NUM_FEATURES*window_size, hidden_size=128)
-    model = DFN(input_dim=NUM_FEATURES*window_size)
+    # model = DFN(input_dim=NUM_FEATURES*window_size)
+    # model = TCN(input_channels=NUM_FEATURES)
+    model = DeepLOB(device)
     model = model.to(device)
 
     # experiment name
-    experiment_name = "mlp-dfn-s5"
+    experiment_name = "deep_lob-s100"
 
     # loss function and optimizer
     criterion = nn.CrossEntropyLoss()
@@ -213,7 +220,7 @@ if __name__ == "__main__":
 
         # get data loaders
         train_loader, val_loader, test_loader = get_data_loaders(
-            device, label=label, batch_size=batch_size, window_size=window_size)
+            device, label=label, batch_size=batch_size, window_size=window_size, flatten=False, use_custom_cols=False)
 
         # training and evaluation
         train_and_evaluate_model(train_loader, val_loader,

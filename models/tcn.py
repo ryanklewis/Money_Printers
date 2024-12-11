@@ -3,7 +3,7 @@ import torch
 
 
 class TCN(nn.Module):
-    def __init__(self, input_channels, num_classes):
+    def __init__(self, input_channels, num_classes=3):
         super(TCN, self).__init__()
 
         self.conv1 = nn.Conv1d(
