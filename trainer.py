@@ -1,6 +1,7 @@
 from models.mlp import MLP
 from models.dfn import DFN
 from models.tcn import TCN
+from models.lstm import LSTMModel
 from models.deep_lob import DeepLOB
 from models.trans_lob import TransLOB
 import torch
